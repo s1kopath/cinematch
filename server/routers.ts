@@ -1,22 +1,21 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { z } from "zod";
 import { fetchPopularMovies, fetchUpcomingMovies, getPosterUrl } from "./tmdb";
-import { addFavorite, removeFavorite, getUserFavorites, isFavorited } from "./favorites";
+import {
+  addFavorite,
+  removeFavorite,
+  getUserFavorites,
+  isFavorited,
+} from "./favorites";
 
 export const appRouter = router({
   system: systemRouter,
+
+  // Auth router simplified to just return the guest user
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
-    }),
+    logout: publicProcedure.mutation(() => ({ success: true })),
   }),
 
   movies: router({
@@ -25,7 +24,7 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const data = await fetchPopularMovies(input.page);
         return {
-          movies: data.results.map((movie) => ({
+          movies: data.results.map(movie => ({
             id: movie.id,
             title: movie.title,
             posterUrl: getPosterUrl(movie.poster_path),
@@ -43,7 +42,7 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const data = await fetchUpcomingMovies(input.page);
         return {
-          movies: data.results.map((movie) => ({
+          movies: data.results.map(movie => ({
             id: movie.id,
             title: movie.title,
             posterUrl: getPosterUrl(movie.poster_path),
@@ -69,6 +68,8 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
+        // ctx.user is always present as GUEST if auth is disabled
+        if (!ctx.user) return { success: false };
         await addFavorite(
           ctx.user.id,
           input.movieId,
@@ -83,17 +84,21 @@ export const appRouter = router({
     remove: protectedProcedure
       .input(z.object({ movieId: z.number().int().positive() }))
       .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) return { success: false };
         await removeFavorite(ctx.user.id, input.movieId);
         return { success: true };
       }),
 
     list: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return [];
       const favs = await getUserFavorites(ctx.user.id);
-      return favs.map((fav) => ({
+      return favs.map(fav => ({
         id: fav.id,
         movieId: fav.movieId,
         movieTitle: fav.movieTitle,
-        posterUrl: fav.posterPath ? `https://image.tmdb.org/t/p/w500${fav.posterPath}` : null,
+        posterUrl: fav.posterPath
+          ? `https://image.tmdb.org/t/p/w500${fav.posterPath}`
+          : null,
         rating: fav.rating,
         overview: fav.overview,
         addedAt: fav.addedAt,
@@ -103,6 +108,7 @@ export const appRouter = router({
     isFavorited: protectedProcedure
       .input(z.object({ movieId: z.number().int().positive() }))
       .query(async ({ ctx, input }) => {
+        if (!ctx.user) return { favorited: false };
         const favorited = await isFavorited(ctx.user.id, input.movieId);
         return { favorited };
       }),

@@ -1,6 +1,5 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
-import { sdk } from "./sdk";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -8,21 +7,26 @@ export type TrpcContext = {
   user: User | null;
 };
 
+// Guest user used for anonymous access since auth is removed.
+const GUEST_USER: User = {
+  id: 1,
+  openId: "guest",
+  name: "Guest User",
+  email: "guest@example.com",
+  loginMethod: "guest",
+  role: "admin", // Allow guest to do everything
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  lastSignedIn: new Date(),
+};
+
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
-  let user: User | null = null;
-
-  try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    // Authentication is optional for public procedures.
-    user = null;
-  }
-
+  // Always return guest user because authentication has been removed as per user request.
   return {
     req: opts.req,
     res: opts.res,
-    user,
+    user: GUEST_USER,
   };
 }

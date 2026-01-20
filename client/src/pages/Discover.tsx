@@ -24,9 +24,10 @@ export default function Discover() {
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
 
-  const { data: moviesData, isLoading: isFetching } = trpc.movies.getPopular.useQuery({
-    page,
-  });
+  const { data: moviesData, isLoading: isFetching } =
+    trpc.movies.getPopular.useQuery({
+      page,
+    });
 
   const addToFavoritesMutation = trpc.favorites.add.useMutation();
   const removeFromFavoritesMutation = trpc.favorites.remove.useMutation();
@@ -57,7 +58,10 @@ export default function Discover() {
           movieId: currentMovie.id,
           movieTitle: currentMovie.title,
           posterPath: currentMovie.posterUrl
-            ? currentMovie.posterUrl.replace("https://image.tmdb.org/t/p/w500", "")
+            ? currentMovie.posterUrl.replace(
+                "https://image.tmdb.org/t/p/w500",
+                ""
+              )
             : null,
           rating: currentMovie.rating,
           overview: currentMovie.overview,
@@ -68,36 +72,6 @@ export default function Discover() {
     }
     handleSwipeLeft();
   };
-
-  if (!user) {
-    return (
-      <div className="min-h-screen animated-gradient-bg flex items-center justify-center relative overflow-hidden">
-        {/* Animated background grid */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px)',
-            backgroundSize: '50px 50px'
-          }} />
-        </div>
-
-        <div className="text-center relative z-10">
-          <h1 className="text-5xl font-bold mb-4 glitch-text" data-text="CINEMATCH">
-            CINEMATCH
-          </h1>
-          <p className="text-lg text-cyan-400 mb-8 font-mono">
-            &gt; SIGN IN TO DISCOVER YOUR NEXT FAVORITE
-          </p>
-          <Button
-            onClick={() => setLocation("/login")}
-            size="lg"
-            className="cyber-button font-bold text-lg"
-          >
-            [ ENTER SYSTEM ]
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   if (isLoading || !currentMovie) {
     return (
@@ -114,11 +88,14 @@ export default function Discover() {
     <div className="min-h-screen animated-gradient-bg relative overflow-hidden">
       {/* Animated background grid */}
       <div className="absolute inset-0 opacity-5 pointer-events-none">
-        <div style={{
-          backgroundImage: 'linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px)',
-          backgroundSize: '50px 50px',
-          height: '100%'
-        }} />
+        <div
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px)",
+            backgroundSize: "50px 50px",
+            height: "100%",
+          }}
+        />
       </div>
 
       {/* Header */}
@@ -140,7 +117,11 @@ export default function Discover() {
               <Heart className="w-4 h-4 mr-2" />
               MATCHES
             </Button>
-            <Button variant="ghost" size="icon" className="text-cyan-400 hover:text-cyan-300">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-cyan-400 hover:text-cyan-300"
+            >
               <Menu className="w-5 h-5" />
             </Button>
           </div>
