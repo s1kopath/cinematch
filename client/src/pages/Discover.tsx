@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { SwipeCard } from "@/components/SwipeCard";
 import { Button } from "@/components/ui/button";
 import { Heart, Menu } from "lucide-react";
-import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
+import { fetchPopularMovies, getPosterUrl } from "@/lib/tmdb";
+import { favoritesStore } from "@/lib/favoritesStore";
+import { useQuery } from "@tanstack/react-query";
 
 interface Movie {
   id: number;
@@ -17,44 +18,45 @@ interface Movie {
 }
 
 export default function Discover() {
-  const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [movies, setMovies] = useState<Movie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [isAddingFavorite, setIsAddingFavorite] = useState(false);
 
-  const { data: moviesData, isLoading: isFetching } =
-    trpc.movies.getPopular.useQuery({
-      page,
-    });
+  const {
+    data: moviesData,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: ["movies", "popular", page],
+    queryFn: () => fetchPopularMovies(page),
+  });
 
-  const addToFavoritesMutation = trpc.favorites.add.useMutation();
-  const removeFromFavoritesMutation = trpc.favorites.remove.useMutation();
-
-  useEffect(() => {
-    if (moviesData?.movies) {
-      setMovies(moviesData.movies);
-      setCurrentIndex(0);
-      setIsLoading(false);
-    }
-  }, [moviesData]);
+  const movies: Movie[] = (moviesData?.results || []).map(movie => ({
+    id: movie.id,
+    title: movie.title,
+    posterUrl: getPosterUrl(movie.poster_path),
+    rating: movie.vote_average,
+    overview: movie.overview,
+    releaseDate: movie.release_date,
+  }));
 
   const currentMovie = movies[currentIndex];
 
   const handleSwipeLeft = async () => {
     if (currentIndex < movies.length - 1) {
       setCurrentIndex(currentIndex + 1);
-    } else if (page < (moviesData?.totalPages || 1)) {
-      setPage(page + 1);
-      setIsLoading(true);
+    } else if (page < (moviesData?.total_pages || 1)) {
+      setPage(prev => prev + 1);
+      setCurrentIndex(0);
     }
   };
 
   const handleSwipeRight = async () => {
-    if (currentMovie && user) {
+    if (currentMovie) {
+      setIsAddingFavorite(true);
       try {
-        await addToFavoritesMutation.mutateAsync({
+        favoritesStore.addFavorite({
           movieId: currentMovie.id,
           movieTitle: currentMovie.title,
           posterPath: currentMovie.posterUrl
@@ -68,17 +70,32 @@ export default function Discover() {
         });
       } catch (error) {
         console.error("Failed to add favorite:", error);
+      } finally {
+        setIsAddingFavorite(false);
       }
     }
     handleSwipeLeft();
   };
 
-  if (isLoading || !currentMovie) {
+  if (isLoading || (movies.length > 0 && !currentMovie)) {
     return (
       <div className="min-h-screen animated-gradient-bg flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-cyan-400" />
           <p className="text-cyan-400 font-mono">LOADING CINEMA DATABASE...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (movies.length === 0 && !isLoading) {
+    return (
+      <div className="min-h-screen animated-gradient-bg flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-cyan-400 font-mono">NO MOVIES FOUND.</p>
+          <Button onClick={() => setPage(1)} className="mt-4 cyber-button">
+            RETRY
+          </Button>
         </div>
       </div>
     );
@@ -131,17 +148,19 @@ export default function Discover() {
       {/* Main Content */}
       <main className="container py-8 flex flex-col items-center justify-center min-h-[calc(100vh-80px)] relative z-10">
         <div className="w-full max-w-sm">
-          <SwipeCard
-            key={currentMovie.id}
-            id={currentMovie.id}
-            title={currentMovie.title}
-            posterUrl={currentMovie.posterUrl}
-            rating={currentMovie.rating}
-            overview={currentMovie.overview}
-            onSwipeLeft={handleSwipeLeft}
-            onSwipeRight={handleSwipeRight}
-            isLoading={isFetching || addToFavoritesMutation.isPending}
-          />
+          {currentMovie && (
+            <SwipeCard
+              key={currentMovie.id}
+              id={currentMovie.id}
+              title={currentMovie.title}
+              posterUrl={currentMovie.posterUrl}
+              rating={currentMovie.rating}
+              overview={currentMovie.overview}
+              onSwipeLeft={handleSwipeLeft}
+              onSwipeRight={handleSwipeRight}
+              isLoading={isFetching || isAddingFavorite}
+            />
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-4 justify-center mt-8">
@@ -150,7 +169,7 @@ export default function Discover() {
               size="lg"
               className="rounded-xl w-16 h-16 cyber-button border-red-500/50 text-red-400 hover:text-red-300"
               onClick={handleSwipeLeft}
-              disabled={isFetching || addToFavoritesMutation.isPending}
+              disabled={isFetching || isAddingFavorite}
             >
               <span className="text-2xl">✕</span>
             </Button>
@@ -158,7 +177,7 @@ export default function Discover() {
               size="lg"
               className="rounded-xl w-16 h-16 bg-cyan-500/20 hover:bg-cyan-500/40 border border-cyan-400/50 text-cyan-400"
               onClick={handleSwipeRight}
-              disabled={isFetching || addToFavoritesMutation.isPending}
+              disabled={isFetching || isAddingFavorite}
             >
               <Heart className="w-6 h-6 fill-cyan-400" />
             </Button>
@@ -168,7 +187,7 @@ export default function Discover() {
           <div className="text-center mt-8 text-sm text-cyan-400/70 font-mono">
             <p>
               &gt; {currentIndex + 1} / {movies.length}
-              {page < (moviesData?.totalPages || 1) && " [MORE AVAILABLE]"}
+              {page < (moviesData?.total_pages || 1) && " [MORE AVAILABLE]"}
             </p>
           </div>
         </div>

@@ -1,42 +1,27 @@
 import { useState } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Heart, Grid3x3, List, Trash2, ArrowLeft } from "lucide-react";
-import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
+import { favoritesStore } from "@/lib/favoritesStore";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type ViewMode = "grid" | "list";
 
 export default function Favorites() {
-  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const queryClient = useQueryClient();
 
-  const { data: favorites, isLoading, refetch } = trpc.favorites.list.useQuery();
-  const removeFromFavoritesMutation = trpc.favorites.remove.useMutation({
-    onSuccess: () => {
-      refetch();
-    },
+  const { data: favorites, isLoading } = useQuery({
+    queryKey: ["favorites"],
+    queryFn: () => favoritesStore.getFavorites(),
   });
 
-  if (!user) {
-    return (
-      <div className="min-h-screen animated-gradient-bg flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4 glitch-text" data-text="ACCESS DENIED">
-            ACCESS DENIED
-          </h1>
-          <p className="text-lg text-cyan-400 mb-8 font-mono">
-            &gt; AUTHENTICATION REQUIRED
-          </p>
-          <Button onClick={() => setLocation("/")} size="lg" className="cyber-button">
-            [ RETURN ]
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleRemove = (movieId: number) => {
+    favoritesStore.removeFavorite(movieId);
+    queryClient.invalidateQueries({ queryKey: ["favorites"] });
+  };
 
   if (isLoading) {
     return (
@@ -49,19 +34,18 @@ export default function Favorites() {
     );
   }
 
-  const handleRemove = async (movieId: number) => {
-    await removeFromFavoritesMutation.mutateAsync({ movieId });
-  };
-
   return (
     <div className="min-h-screen animated-gradient-bg relative overflow-hidden">
       {/* Animated background grid */}
       <div className="absolute inset-0 opacity-5 pointer-events-none">
-        <div style={{
-          backgroundImage: 'linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px)',
-          backgroundSize: '50px 50px',
-          height: '100%'
-        }} />
+        <div
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px)",
+            backgroundSize: "50px 50px",
+            height: "100%",
+          }}
+        />
       </div>
 
       {/* Header */}
@@ -78,7 +62,10 @@ export default function Favorites() {
             </Button>
             <div className="flex items-center gap-2">
               <Heart className="w-6 h-6 text-cyan-400 fill-cyan-400" />
-              <h1 className="text-xl font-bold glitch-text" data-text="MY MATCHES">
+              <h1
+                className="text-xl font-bold glitch-text"
+                data-text="MY MATCHES"
+              >
                 MY MATCHES
               </h1>
             </div>
@@ -88,7 +75,11 @@ export default function Favorites() {
               variant={viewMode === "grid" ? "default" : "outline"}
               size="icon"
               onClick={() => setViewMode("grid")}
-              className={viewMode === "grid" ? "cyber-button" : "border-cyan-400/50 text-cyan-400"}
+              className={
+                viewMode === "grid"
+                  ? "cyber-button"
+                  : "border-cyan-400/50 text-cyan-400"
+              }
             >
               <Grid3x3 className="w-4 h-4" />
             </Button>
@@ -96,7 +87,11 @@ export default function Favorites() {
               variant={viewMode === "list" ? "default" : "outline"}
               size="icon"
               onClick={() => setViewMode("list")}
-              className={viewMode === "list" ? "cyber-button" : "border-cyan-400/50 text-cyan-400"}
+              className={
+                viewMode === "list"
+                  ? "cyber-button"
+                  : "border-cyan-400/50 text-cyan-400"
+              }
             >
               <List className="w-4 h-4" />
             </Button>
@@ -109,24 +104,30 @@ export default function Favorites() {
         {!favorites || favorites.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Heart className="w-16 h-16 text-cyan-400/30 mb-4" />
-            <h2 className="text-2xl font-bold text-cyan-400 mb-2 font-mono">NO MATCHES FOUND</h2>
+            <h2 className="text-2xl font-bold text-cyan-400 mb-2 font-mono">
+              NO MATCHES FOUND
+            </h2>
             <p className="text-cyan-400/70 mb-8 font-mono">
               &gt; START SWIPING TO FIND YOUR NEXT FAVORITE
             </p>
-            <Button onClick={() => setLocation("/")} size="lg" className="cyber-button">
+            <Button
+              onClick={() => setLocation("/")}
+              size="lg"
+              className="cyber-button"
+            >
               [ DISCOVER CINEMA ]
             </Button>
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {favorites.map((movie) => (
+            {favorites.map(movie => (
               <div
                 key={movie.id}
                 className="group relative rounded-2xl overflow-hidden neon-border scan-effect hover:shadow-lg transition-all"
               >
-                {movie.posterUrl ? (
+                {movie.posterPath ? (
                   <img
-                    src={movie.posterUrl}
+                    src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
                     alt={movie.movieTitle}
                     className="w-full aspect-[2/3] object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -154,7 +155,6 @@ export default function Favorites() {
                       variant="destructive"
                       size="sm"
                       onClick={() => handleRemove(movie.movieId)}
-                      disabled={removeFromFavoritesMutation.isPending}
                       className="bg-red-500/20 hover:bg-red-500/40 border border-red-400/50 text-red-400 rounded-lg"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -166,14 +166,14 @@ export default function Favorites() {
           </div>
         ) : (
           <div className="space-y-4">
-            {favorites.map((movie) => (
+            {favorites.map(movie => (
               <div
                 key={movie.id}
                 className="flex gap-4 bg-slate-800/40 rounded-xl overflow-hidden neon-border scan-effect hover:shadow-lg transition-all p-4"
               >
-                {movie.posterUrl ? (
+                {movie.posterPath ? (
                   <img
-                    src={movie.posterUrl}
+                    src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
                     alt={movie.movieTitle}
                     className="w-24 h-32 object-cover rounded-lg"
                   />
@@ -209,7 +209,6 @@ export default function Favorites() {
                     variant="destructive"
                     size="sm"
                     onClick={() => handleRemove(movie.movieId)}
-                    disabled={removeFromFavoritesMutation.isPending}
                     className="w-fit bg-red-500/20 hover:bg-red-500/40 border border-red-400/50 text-red-400 rounded-lg"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
