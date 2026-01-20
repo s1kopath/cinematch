@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Heart, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, PanInfo, useMotionValue, useTransform } from "framer-motion";
 
 export interface SwipeCardProps {
   id: number;
@@ -23,150 +24,46 @@ export const SwipeCard = ({
   onSwipeRight,
   isLoading = false,
 }: SwipeCardProps) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [swipeState, setSwipeState] = useState<{
-    isDragging: boolean;
-    startX: number;
-    currentX: number;
-    direction: "left" | "right" | null;
-  }>({
-    isDragging: false,
-    startX: 0,
-    currentX: 0,
-    direction: null,
-  });
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
+    null
+  );
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 200], [-25, 25]);
+  const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]);
 
   const SWIPE_THRESHOLD = 100;
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (isLoading) return;
-    setSwipeState((prev) => ({
-      ...prev,
-      isDragging: true,
-      startX: e.clientX,
-      currentX: e.clientX,
-    }));
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isLoading) return;
-    const touch = e.touches[0];
-    setSwipeState((prev) => ({
-      ...prev,
-      isDragging: true,
-      startX: touch.clientX,
-      currentX: touch.clientX,
-    }));
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!swipeState.isDragging) return;
-
-    const delta = e.clientX - swipeState.startX;
-    const direction = delta > 0 ? "right" : delta < 0 ? "left" : null;
-
-    setSwipeState((prev) => ({
-      ...prev,
-      currentX: e.clientX,
-      direction,
-    }));
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!swipeState.isDragging) return;
-
-    const touch = e.touches[0];
-    const delta = touch.clientX - swipeState.startX;
-    const direction = delta > 0 ? "right" : delta < 0 ? "left" : null;
-
-    setSwipeState((prev) => ({
-      ...prev,
-      currentX: touch.clientX,
-      direction,
-    }));
-  };
-
-  const handleMouseUp = () => {
-    if (!swipeState.isDragging) return;
-
-    const delta = swipeState.currentX - swipeState.startX;
-    const absDelta = Math.abs(delta);
-
-    if (absDelta > SWIPE_THRESHOLD) {
-      if (delta > 0) {
-        onSwipeRight();
-      } else {
-        onSwipeLeft();
-      }
+  const handleDragUpdate = (_: any, info: PanInfo) => {
+    if (info.offset.x > 50) {
+      setSwipeDirection("right");
+    } else if (info.offset.x < -50) {
+      setSwipeDirection("left");
+    } else {
+      setSwipeDirection(null);
     }
-
-    setSwipeState({
-      isDragging: false,
-      startX: 0,
-      currentX: 0,
-      direction: null,
-    });
   };
 
-  const handleTouchEnd = () => {
-    if (!swipeState.isDragging) return;
-
-    const delta = swipeState.currentX - swipeState.startX;
-    const absDelta = Math.abs(delta);
-
-    if (absDelta > SWIPE_THRESHOLD) {
-      if (delta > 0) {
-        onSwipeRight();
-      } else {
-        onSwipeLeft();
-      }
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    if (info.offset.x > SWIPE_THRESHOLD) {
+      onSwipeRight();
+    } else if (info.offset.x < -SWIPE_THRESHOLD) {
+      onSwipeLeft();
     }
-
-    setSwipeState({
-      isDragging: false,
-      startX: 0,
-      currentX: 0,
-      direction: null,
-    });
+    setSwipeDirection(null);
   };
-
-  useEffect(() => {
-    if (!swipeState.isDragging) return;
-
-    document.addEventListener("mousemove", handleMouseMove as any);
-    document.addEventListener("mouseup", handleMouseUp);
-    document.addEventListener("touchmove", handleTouchMove as any);
-    document.addEventListener("touchend", handleTouchEnd);
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove as any);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.removeEventListener("touchmove", handleTouchMove as any);
-      document.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [swipeState.isDragging, swipeState.startX, swipeState.currentX]);
-
-  const delta = swipeState.currentX - swipeState.startX;
-  const rotation = (delta / 100) * 5;
-  const opacity = Math.max(0, 1 - Math.abs(delta) / 200);
 
   return (
-    <div
-      ref={cardRef}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
+    <motion.div
+      style={{ x, rotate, opacity, touchAction: "none" }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      onDrag={handleDragUpdate}
+      onDragEnd={handleDragEnd}
+      whileDrag={{ cursor: "grabbing" }}
       className={cn(
-        "relative w-full max-w-sm mx-auto aspect-[3/4] rounded-2xl overflow-hidden transition-transform duration-100 neon-border scan-effect shadow-2xl",
-        swipeState.isDragging ? "cursor-grabbing" : "cursor-grab",
+        "relative w-full max-w-sm mx-auto aspect-[3/4] rounded-2xl overflow-hidden neon-border scan-effect shadow-2xl cursor-grab",
         isLoading && "opacity-50 pointer-events-none"
       )}
-      style={
-        swipeState.isDragging
-          ? {
-              transform: `translateX(${delta}px) rotate(${rotation}deg)`,
-            }
-          : {}
-      }
     >
       {/* Background Image */}
       {posterUrl ? (
@@ -186,8 +83,11 @@ export const SwipeCard = ({
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
 
       {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-6 text-white">
-        <h2 className="text-2xl font-bold mb-2 line-clamp-2 glitch-text" data-text={title}>
+      <div className="absolute inset-0 flex flex-col justify-end p-6 text-white pointer-events-none">
+        <h2
+          className="text-2xl font-bold mb-2 line-clamp-2 glitch-text"
+          data-text={title}
+        >
           {title}
         </h2>
 
@@ -200,26 +100,26 @@ export const SwipeCard = ({
         </div>
 
         {/* Overview */}
-        <p className="text-sm line-clamp-3 text-cyan-100/80 mb-4 font-mono">{overview}</p>
+        <p className="text-sm line-clamp-3 text-cyan-100/80 mb-4 font-mono">
+          {overview}
+        </p>
 
         {/* Swipe Indicators */}
-        {swipeState.isDragging && (
-          <div className="flex gap-4 justify-between items-center">
-            {swipeState.direction === "left" && (
-              <div className="flex items-center gap-2 text-red-400 animate-pulse">
-                <X size={24} />
-                <span className="font-bold font-mono">SKIP</span>
-              </div>
-            )}
-            {swipeState.direction === "right" && (
-              <div className="flex items-center gap-2 text-cyan-400 animate-pulse ml-auto">
-                <span className="font-bold font-mono">MATCH</span>
-                <Heart size={24} fill="currentColor" />
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex gap-4 justify-between items-center min-h-[40px]">
+          {swipeDirection === "left" && (
+            <div className="flex items-center gap-2 text-red-400 animate-pulse">
+              <X size={24} />
+              <span className="font-bold font-mono">SKIP</span>
+            </div>
+          )}
+          {swipeDirection === "right" && (
+            <div className="flex items-center gap-2 text-cyan-400 animate-pulse ml-auto">
+              <span className="font-bold font-mono">MATCH</span>
+              <Heart size={24} fill="currentColor" />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

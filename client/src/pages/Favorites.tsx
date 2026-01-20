@@ -25,7 +25,7 @@ export default function Favorites() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen animated-gradient-bg flex items-center justify-center">
+      <div className="flex items-center justify-center pt-20">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-cyan-400" />
           <p className="text-cyan-400 font-mono">RETRIEVING MATCHES...</p>
@@ -35,18 +35,8 @@ export default function Favorites() {
   }
 
   return (
-    <div className="min-h-screen animated-gradient-bg relative overflow-hidden">
-      {/* Animated background grid */}
-      <div className="absolute inset-0 opacity-5 pointer-events-none">
-        <div
-          style={{
-            backgroundImage:
-              "linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "50px 50px",
-            height: "100%",
-          }}
-        />
-      </div>
+    <div className="relative">
+      {/* Header */}
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-cyan-500/30">

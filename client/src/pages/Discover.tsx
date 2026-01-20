@@ -47,7 +47,7 @@ export default function Discover() {
     if (currentIndex < movies.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else if (page < (moviesData?.total_pages || 1)) {
-      setPage(prev => prev + 1);
+      setPage((prev: number) => prev + 1);
       setCurrentIndex(0);
     }
   };
@@ -102,19 +102,7 @@ export default function Discover() {
   }
 
   return (
-    <div className="min-h-screen animated-gradient-bg relative overflow-hidden">
-      {/* Animated background grid */}
-      <div className="absolute inset-0 opacity-5 pointer-events-none">
-        <div
-          style={{
-            backgroundImage:
-              "linear-gradient(90deg, rgba(0,255,255,0.1) 1px, transparent 1px), linear-gradient(rgba(0,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "50px 50px",
-            height: "100%",
-          }}
-        />
-      </div>
-
+    <div className="relative">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-cyan-500/30">
         <div className="container flex items-center justify-between h-16">
