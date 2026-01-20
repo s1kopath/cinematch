@@ -1,6 +1,10 @@
 import { eq, and } from "drizzle-orm";
 import { getDb } from "./db";
-import { favorites } from "../drizzle/schema";
+import { Favorite, favorites } from "../drizzle/schema";
+
+// In-memory fallback for favorites when no database is available.
+const memoryFavorites: Favorite[] = [];
+let nextId = 1;
 
 export async function addFavorite(
   userId: number,
@@ -12,7 +16,22 @@ export async function addFavorite(
 ): Promise<void> {
   const db = await getDb();
   if (!db) {
-    throw new Error("Database not available");
+    console.warn("[Favorites] Database not available, using in-memory storage");
+    if (
+      !memoryFavorites.some(f => f.userId === userId && f.movieId === movieId)
+    ) {
+      memoryFavorites.push({
+        id: nextId++,
+        userId,
+        movieId,
+        movieTitle,
+        posterPath,
+        rating,
+        overview,
+        addedAt: new Date(),
+      });
+    }
+    return;
   }
 
   await db.insert(favorites).values({
@@ -26,10 +45,19 @@ export async function addFavorite(
   });
 }
 
-export async function removeFavorite(userId: number, movieId: number): Promise<void> {
+export async function removeFavorite(
+  userId: number,
+  movieId: number
+): Promise<void> {
   const db = await getDb();
   if (!db) {
-    throw new Error("Database not available");
+    const index = memoryFavorites.findIndex(
+      f => f.userId === userId && f.movieId === movieId
+    );
+    if (index !== -1) {
+      memoryFavorites.splice(index, 1);
+    }
+    return;
   }
 
   await db
@@ -37,10 +65,12 @@ export async function removeFavorite(userId: number, movieId: number): Promise<v
     .where(and(eq(favorites.userId, userId), eq(favorites.movieId, movieId)));
 }
 
-export async function getUserFavorites(userId: number) {
+export async function getUserFavorites(userId: number): Promise<Favorite[]> {
   const db = await getDb();
   if (!db) {
-    throw new Error("Database not available");
+    return memoryFavorites
+      .filter(f => f.userId === userId)
+      .sort((a, b) => a.addedAt.getTime() - b.addedAt.getTime());
   }
 
   const result = await db
@@ -52,10 +82,15 @@ export async function getUserFavorites(userId: number) {
   return result;
 }
 
-export async function isFavorited(userId: number, movieId: number): Promise<boolean> {
+export async function isFavorited(
+  userId: number,
+  movieId: number
+): Promise<boolean> {
   const db = await getDb();
   if (!db) {
-    throw new Error("Database not available");
+    return memoryFavorites.some(
+      f => f.userId === userId && f.movieId === movieId
+    );
   }
 
   const result = await db
